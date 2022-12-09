@@ -46,12 +46,19 @@ und die unrolling version:
    
 \begin{tikzpicture}
 \begin{semilogyaxis}[
-ybar, symbolic x coords={128,256,512,1024, 2048},
+ybar, x=60pt, y=15pt,
+symbolic x coords={128, 256, 512, 1024, 2048},
+legend style={at={(0.5,-0.15)},anchor=north,legend columns=-1},
+enlargelimits=0.2, every node near coord/.append style={rotate=45, anchor=west, yshift=5pt},
 nodes near coords, xtick=data, log origin=infty,]
 \addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
-[x=size, y=default, y error plus=default-error-plus, y error minus=default-error-minus] {timing/test.csv};
+[x=size, y=default, y error plus=default-error-plus, y error minus=default-error-minus] {timing/data.csv};
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=loopswap, y error plus=loopswap-error-plus, y error minus=loopswap-error-minus] {timing/data.csv};
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=unrolling, y error plus=unrolling-error-plus, y error minus=unrolling-error-minus] {timing/data.csv};
 
+\legend{default, loopswap, unrolling}
 \end{semilogyaxis}
 \end{tikzpicture}
 \end{document}
-

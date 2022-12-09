@@ -5,31 +5,39 @@
 
 versions = default loopswap unrolling
 sizes = 128 256 512 1024 2048
-outputdir = timing
+timing = timing
+latex = latex
 bindir = bin
-allcsv = $(addsuffix .csv,$(foreach S,$(versions),$(addprefix $(outputdir)/$S-,$(sizes))))
 
-.PHONY: all clean #$(allcsv)
-all: $(outputdir)/data.csv
+allcsv = $(addsuffix .csv,$(foreach S,$(versions),$(addprefix $(timing)/$S-,$(sizes))))
 
-$(outputdir)/data.csv: $(allcsv) | $(outputdir)
-	python3 convert.py $^ $(outputdir)/data.csv
+.PHONY: all clean
+all: $(latex)/protokoll.pdf
 
-$(outputdir)/%.csv: $(bindir)/% | $(outputdir)
+$(timing)/data.csv: $(allcsv) | $(timing)
+	python3 convert.py $^ $(timing)/data.csv
+
+$(timing)/%.csv: $(bindir)/% | $(timing)
+	# should be used without 'if' to regenerate if dependency changed -> for now at least touch
 	if [ ! -f $@ ]; then echo "values" > $@; fi	
 	while [ $$(wc -l < $@) -lt 11 ]; do $< >> $@; done
+	@touch $@
+
+$(latex)/protokoll.pdf: protokoll.tex $(timing)/data.csv $(addsuffix .c,$(versions)) | $(latex)
+	latexmk -pdflua -outdir=$(latex) -shell-escape protokoll.tex
+	@touch $@
 
 $(bindir):
 	mkdir $(bindir)
-$(outputdir):
-	mkdir $(outputdir)
+$(timing):
+	mkdir $(timing)
+$(latex):
+	mkdir $(latex)
 
 clean:
-	rm -r $(outputdir) $(bindir)
+	rm -r $(timing) $(bindir) $(latex)
+
 # executable
 .SECONDEXPANSION:
 $(bindir)/%: wrapper.c $$(addsuffix .c,$$(word 1, $$(subst -, ,%))) | $(bindir) #$$(*F)
 	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ -o $@
-
-# $(outputdir)%.csv: $$(word 1,$$(subst -, ,$$(*F)))
-# 	echo "name is $(*F) preq $^"

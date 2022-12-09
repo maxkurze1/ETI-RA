@@ -1,6 +1,7 @@
 #!/bin/env python3
 import pandas as pd
 import sys
+import os
 
 data = {}
 
@@ -15,7 +16,7 @@ data = {}
 #     columns.add(version)
 
 for file in sys.argv[1:-1]:
-    filename = file.split('.')[0]
+    filename = os.path.splitext(os.path.basename(file))[0]
     version = filename.split('-')[0]
     size    = filename.split('-')[1]
     df = pd.read_csv(file)['values']
