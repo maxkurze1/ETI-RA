@@ -1,0 +1,57 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{IEEEtrantools}
+\usepackage[outputdir=latex]{minted}
+\usepackage{pgfplots}
+\title{Serielle Optimierung der Matrix Multiplikation auf CPUs - Protokoll}
+\author{Max Kurze, Vincent Melisch}
+\date{December 2022}
+
+\begin{document}
+
+\maketitle
+
+\section*{Aufgabe 1}
+
+%\begin{equation*}
+\begin{IEEEeqnarray*}{cCcCcCcCc}
+2 \frac{Instructions}{Cycle} &\times& 2 \frac{Operations}{Instruction} &\times& 12~Kerne &\times& 2 \frac{Threads}{Kern} &\times& 3.3 \times 10^9 \frac{Cycles}{second}\\
+\\
+Einheiten && FMA && Kerne && Hyperthreading && Clock-freq\\
+\end{IEEEeqnarray*}
+
+\section*{Aufgabe 2}
+\textit{Implementierungen der einzelnen Techniken sind in Aufgabe 7 zu finden.}
+\begin{itemize} 
+\item Schleifenvertauschung\\
+\\
+Caches sind extrem schnelle Puffer in denen die CPU für Berechnungen Werte lädt und zurückschreibt. Aufgrund von örtlicher Lokalität werden beim Laden von Daten auch benachbarte Daten mit in den Cache geladen. Daher sollte man den Programmcode so strukturieren, sodass nacheinander auf im Cache liegende Daten zugegriffen wird.\\
+Dies lässt sich unter anderem durch das Vertauschen der Reihenfolge von geschachtelten Schleifen erreichen, da dadurch gegebenenfalls das Zugriffsmuster zugunsten der Lokalität geändert werden kann.
+\item Loopunrolling
+\item Blocking/Tiling
+\item Wiedernutzung von Werten Werten statt Neuberechnung
+\end{itemize}
+
+\setminted{firstline=5}
+
+\section*{Aufgabe 5}
+Die referenz implementation:
+\inputminted{c}{default.c}
+
+die loopswapped version:
+\inputminted{c}{loopswap.c}
+
+und die unrolling version:
+   
+\begin{tikzpicture}
+\begin{semilogyaxis}[
+ybar, symbolic x coords={128,256,512,1024, 2048},
+nodes near coords, xtick=data, log origin=infty,]
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=default, y error plus=default-error-plus, y error minus=default-error-minus] {timing/test.csv};
+
+\end{semilogyaxis}
+\end{tikzpicture}
+\end{document}
+
