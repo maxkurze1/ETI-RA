@@ -3,16 +3,21 @@
 # bin: version-size
 #
 
-versions = default loopswap unrolling
+versions = default loopswap unrolling tiling
 sizes = 128 256 512 1024 2048
 timing = timing
 latex = latex
 bindir = bin
 
 allcsv = $(addsuffix .csv,$(foreach S,$(versions),$(addprefix $(timing)/$S-,$(sizes))))
+allbin = $(foreach S,$(versions),$(addprefix $(bindir)/$S-,$(sizes)))
 
-.PHONY: all clean
-all: $(latex)/protokoll.pdf
+.PHONY: all clean protokoll
+all: $(allcsv)
+
+protokoll: $(latex)/protokoll.pdf
+
+compile: $(allbin)
 
 $(timing)/data.csv: $(allcsv) | $(timing)
 	python3 convert.py $^ $(timing)/data.csv
@@ -39,5 +44,12 @@ clean:
 
 # executable
 .SECONDEXPANSION:
-$(bindir)/%: wrapper.c $$(addsuffix .c,$$(word 1, $$(subst -, ,%))) | $(bindir) #$$(*F)
+$(bindir)/%: wrapper.c util.c $$(addsuffix .c,$$(word 1, $$(subst -, ,%))) | $(bindir) #$$(*F)
 	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ -o $@
+
+.PHONY: test
+test: $(addsuffix -512,$(addprefix $(bindir)/test-,$(versions)))
+	@for i in $^; do echo "Testing $$i"; $$i; done
+
+$(bindir)/test-%: testing.c util.c $$(addsuffix .c,$$(word 1, $$(subst -, ,%))) | $(bindir)
+	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ -lcblas -o $@
