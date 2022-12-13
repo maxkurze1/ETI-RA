@@ -25,10 +25,9 @@ int main() {
     matrix_mult(a, b, res);
     clock_t end = clock();
 
-    // printf("%d: %f\n", executions, (double)(end - start) / CLOCKS_PER_SEC);
-
     executions++;
     total_clock += end - start;
   }
-  printf("%f\n", (double)total_clock / (CLOCKS_PER_SEC * executions));
+  // flops = 2*n^3
+  printf("%f\n", (2.0 * SIZE * SIZE * SIZE * CLOCKS_PER_SEC * executions) / total_clock);
 }

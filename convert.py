@@ -24,9 +24,13 @@ for file in sys.argv[1:-1]:
         data[version] = {}
         data[version + '-error-minus'] = {}
         data[version + '-error-plus'] = {}
+        data[version + '-min'] = {}
+        data[version + '-max'] = {}
     data[version][size] = df.median()
     data[version + '-error-minus'][size] = df.median() - df.min()
     data[version + '-error-plus'][size] = df.max() - df.median()
+    data[version + '-min'][size] = df.max()
+    data[version + '-max'][size] = df.max()
 
 df = pd.DataFrame(data)
 df.index.names = ['size']

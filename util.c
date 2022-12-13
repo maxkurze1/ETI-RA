@@ -1,9 +1,6 @@
 #include <stdlib.h>
 #include <time.h>
-
-#ifndef SIZE
-#define SIZE 100
-#endif /* !SIZE */
+#include "size.h"
 
 void init_random(float m[SIZE][SIZE]) {
   srand(time(0));

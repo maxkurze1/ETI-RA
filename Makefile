@@ -8,6 +8,7 @@ sizes = 128 256 512 1024 2048
 timing = timing
 latex = latex
 bindir = bin
+CFLAGS ?= -Wall -Wextra
 
 allcsv = $(addsuffix .csv,$(foreach S,$(versions),$(addprefix $(timing)/$S-,$(sizes))))
 allbin = $(foreach S,$(versions),$(addprefix $(bindir)/$S-,$(sizes)))
@@ -45,11 +46,11 @@ clean:
 # executable
 .SECONDEXPANSION:
 $(bindir)/%: wrapper.c util.c $$(addsuffix .c,$$(word 1, $$(subst -, ,%))) | $(bindir) #$$(*F)
-	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ -o $@
+	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ $(CFLAGS) -o $@
 
 .PHONY: test
 test: $(addsuffix -512,$(addprefix $(bindir)/test-,$(versions)))
 	@for i in $^; do echo "Testing $$i"; $$i; done
 
 $(bindir)/test-%: testing.c util.c $$(addsuffix .c,$$(word 1, $$(subst -, ,%))) | $(bindir)
-	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ -lcblas -o $@
+	gcc -DSIZE="$(word 2, $(subst -, ,$(*F)))" $^ $(CFLAGS) -lcblas -o $@
