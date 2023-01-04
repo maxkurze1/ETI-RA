@@ -1,10 +1,33 @@
+SIZE = 1024 2048 4096
+NTASKS = 1 2 4 6 8 12 16 20 23 24 25 28 32 36 40 48
+CFLAGS = -Wall -Wextra -O3 -march=native
+SRC = mpi.c
+CC = mpicc
+RUN ?= srun
+all = $(foreach S,$(SIZE),$(addprefix timing/mpi-$S-,$(NTASKS)))
+allbin = $(addprefix bin/mpi-,$(SIZE))
 
-matrix-mult:
-	mpicc -DSIZE="1024" matrix-mult.c -Wall -Wextra -o matrix-mult
+.PHONY: all
+all: $(all)
 
-run: matrix-mult
-	mpirun -np 2 ./$^
+# mpi-$SIZE
+bin/mpi-%: | bin
+	$(CC) -DSIZE="$(word 1, $(subst -, ,$(*F)))" $(CFLAGS) $(SRC) -o $@
+
+bin:
+	mkdir bin
+timing:
+	mkdir timing
 
 .PHONY: clean
 clean:
-	if [ -f matrix-mult ]; then rm matrix-mult; fi
+	rm -r bin timing
+
+# mpi-$SIZE-$ntasks
+.SECONDEXPANSION:
+timing/mpi-%: bin/mpi-$$(word 1,$$(subst -, ,$$(*F))) | timing
+	echo 'values' > $@
+	for i in {0..9}; do \
+		$(RUN) --ntasks $(word 2,$(subst -, ,$(*F))) --exclusive $< >> $@; \
+	done
+

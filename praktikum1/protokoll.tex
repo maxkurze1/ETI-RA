@@ -1,0 +1,329 @@
+\documentclass[a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper, margin=3cm]{geometry}
+\usepackage{amsmath}
+\usepackage{IEEEtrantools}
+\usepackage{floatrow}
+\floatsetup[listing]{style=Plaintop}    
+\usepackage[outputdir=latex]{minted}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage[german]{babel}
+\title{Serielle Optimierung der Matrix Multiplikation auf CPUs - Protokoll}
+\author{Max Kurze, Vincent Melisch}
+\date{December 2022}
+\pgfplotsset{compat=1.18}
+\setminted{breaklines}
+\begin{document}
+
+\maketitle
+
+\textit{Alle Messungen wurden auf einer Intel(R) Xeon(R) E5-2680 v3 CPU durchgeführt.}
+
+\section*{Aufgabe 1}
+
+\begin{itemize}
+\item FPPP, Single Precision, AVX, ohne Turbo:
+\begin{multline*}
+12\ Cores\ \cdot\ 2.1\ \cdot\ 10^9\ \frac{Instructions}{Second}\ \cdot\ \frac{256\ Bit}{32\ Bit}\ (AVX)\ \cdot\ \frac{2\ FPUs}{Core}\ \cdot\ 2\ (FMA)\\
+= 806,4 \cdot 10^9FLOPS
+\end{multline*}
+
+\item FPPP, Single Precision, AVX, mit Turbo:
+\begin{multline*}
+12~Cores ~\cdot~ 2.8 ~\cdot~ 10^{9} \frac{Instructions}{Second} ~\cdot~ \frac{256~Bit}{32~Bit}~(AVX) ~\cdot~ \frac{2~FPUs}{Core} ~\cdot~ 2~(FMA) \\ = 1075,2 ~\cdot~ 10^{9}~FLOPS
+\end{multline*}
+\end{itemize}
+
+
+\section*{Aufgabe 2}
+\textit{Implementierungen der einzelnen Techniken sind in Aufgabe 7 zu finden.}
+\begin{itemize} 
+\item Schleifenvertauschung\\
+\\
+Aufgrund von Lokalität, wird beim Laden einer Variablen aus dem Hauptspeicher nicht nur diese, sondern auch benachbarte Daten in den Cache geladen. Daher ist es performant, Code zu schreiben, der auf im Speicher benachbarte Daten nacheinander zugreift. Um das umzusetzen, kann eine Vertauschung der Schleifen helfen, um Zugriffsmuster anzupassen. (\textit{Eine genaue Erklärung findet sich in Aufgabe 7})
+\item Loopunrolling
+\\
+Beim Loopunrolling wird der Code von N Schleifeniterationen in einer einzigen Schleifeniteration durchgeführt. Natürlich muss dafür die Schrittweite der Schleife auf N gesetzt werden. Durch das Unrollen sparrt man sich den Schleifenoverhead (teste, ob n < BOUNDARY, springe) und entlastet somit auch die Branch-Prediction.
+\item Blocking/Tiling
+Eine große Matrixmultiplikation wird in viele kleine Matrixmultiplikationen aufgebrochen. So lässt sich beispielsweise eine Multiplikation von zwei 4 x 4 Matrizen in die in die Berechnung von vier 2 x 2 Matrizen aufteilen. Die Berechnungen der kleinen Teil-Matrizen sind dabei unabhängig voneinander und können somit gut parallelisiert werden.
+\\
+Beim 
+\item Wiedernutzung von Werten Werten statt Neuberechnung
+\\
+Indem man Zischenergebnisse, die mehrfach gebraucht werden, in separaten Variablen abspeichert, kann die Ausführungszeit verringert werden, da Werte nicht neu berechnet werden müssen.
+
+\end{itemize}
+
+\section*{Aufgabe 3}
+\textit{Referenzimplementierung}
+\begin{listing}[H]
+\inputminted[firstline=3]{c}{default.c}
+\caption{default.c}
+\end{listing}
+Formel zur Berechnung der Matrixgröße SIZE:
+\begin{align*}
+    & SIZE^{2} (2\cdot SIZE - 1)
+\end{align*}
+
+Single Core, AVX, Basefrequency \\
+\begin{align*}
+    & 67.2 \times 10^{9}~FLOP \times s^{-1} \times 10\cdot s = SIZE^{2} (2\cdot SIZE - 1)~FLOP \\
+    & 672 \times 10^{9}~FLOP = SIZE^{2} (2\cdot SIZE - 1)~FLOP \\
+    & SIZE = \lceil 6952.2 \rceil = 6953~[SIZE] \\
+\end{align*}
+
+12 Cores, AVX, Basefrequency
+
+\begin{align*}
+    & 806.4 \times 10^{9}FLOP \times s^{-1} \times 10\cdot s = SIZE^{2} (2\cdot SIZE - 1)~FLOP \\
+    & 8064 \times 10^{9}~FLOP = SIZE^{2} (2\cdot SIZE - 1)~FLOP \\
+    & SIZE = \lceil 15916.4 \rceil = 15917~[SIZE] \\
+\end{align*}
+
+12 Cores, AVX, Turbo \\
+\begin{align*}
+    & 1075.2 \times 10^{9}~FLOP \times s^{-1} \times 10\cdot s = SIZE^{2} (2\cdot SIZE - 1)~FLOP \\
+    & 10752 \times 10^{9}~FLOP = SIZE^{2} (2\cdot SIZE - 1)~FLOP \\
+    & SIZE = \sqrt[3]{10752} = \lceil 17518.2 \rceil = 17519~[SIZE] \\
+\end{align*}
+
+Führt man die Matrixmultiplikation parallel auf allen 12 Cores mit AVX und Turbo aus, benötigt man eine 17519 x 17519 Matrix, um eine Laufzeit von mindestens 10 Sekunden zu erhalten. Lässt man den Turbo weg und nimmt stattdessen die Basisfrequenz, verringert sich die Größe auf 15917 x 15917. Wird die Multiplikation auf einem einzelnen Core und ohne Turbo ausgeführt, reicht eine 6953 x 6953 Matrix aus, um eine Laufzeit von mindestens 10 Sekunden zu erlangen. 
+
+
+\section*{Aufgabe 4}
+Um die Korrektheit der Algorithmen zu überprüfen, werden diese auf zufälligen Testdaten ausgeführt und deren Ergebnisse mit einer Standard-Implementation verglichen. Wir haben uns dabei für die \textit{Basic Linear Algebra Subprograms} (BLAS) Bibliothek entschieden. Hierbei wird die Multiplikation von der eigenen und der Biblitheksfunktion unabhängig voneinander ausgeführt und anschließend jedes einzelne Element der Ergebnisse verglichen.
+\\\\
+Der Quellcode in Listing \ref{lst:testing} zeigt unser vorgehen. In Zeile 19 findet der Bibliotheksaufruf mit den zufällig initalisierten Matrizen statt. In Zeile 21 wird die eigene Implementierung aufgerufen und die Ergebnisse anschließend in der verschachtelten for-loop (Zeilen 23 - 27) mit der Bibliotheks-Variante verglichen.
+
+\begin{listing}[H]
+\inputminted[firstline=5, linenos=true]{c}{testing.c}
+\caption{testing.c}
+\label{lst:testing}
+\end{listing}
+
+Der Code wird mit den fogenden Flags compiliert: 
+
+\mint{bash}|gcc -DSIZE=${SIZE} ${VERSION}.c testing.c -Wall -Wextra -lcblas -o "test-${VERSION}-${SIZE}"|
+
+Dabei enthält die Umgebungsvariable \mintinline{bash}|SIZE| die Größe der Matrix und die Variable \mintinline{bash}|VERSION| den Namen der zu prüfenden Version (z.B. default oder unrolling).
+
+\section*{Aufgabe 5}
+
+\textit{Zeitmessung:}
+Berechnung der FLOPS der jeweiligen Matrixgrößen:
+
+\begin{equation*}
+FLOPS = \frac{Anzahl~Iterationen~\cdot~\frac{FLOP}{Iteration}}{Ausfuehrungszeit}
+\end{equation*}
+
+\begin{table}[h!]
+ \begin{tabular}{c|c c c c c} 
+ SIZE & 128 & 256 & 512 & 1024 & 2048 \\ [0.5ex] 
+ \hline\hline
+ MFLOPS& 420.7& 306.2& 245.4& 227.7& 186.2 \\ [1ex]
+ Diff.& 0\%& 27.2\%& 19.9\%& 7.2\%& 18.2\% \\ [1ex]
+ \end{tabular}
+\end{table}
+
+Es lässt sich erkennen, dass mit steigender Größe der Matrix die Mega-FLOPS von 420.7 \\ (SIZE = 128) auf 186.2 (SIZE = 2048) abfallen. Mit Ausnahme von SIZE = 1024, lässt sich im Vergleich zur Vorgängergröße eine Reduzierung der Fließkommaperformance um etwa 20\% feststellen. Unsere Vermutung ist, dass mit steigender Größe der Matrix, sich diese immer schlechter cachen lässt, wodurch häufig Daten aus dem Hauptspeicher geladen werden müssen. Generell nimmt jedoch die Performance ab, da die CPU während sie auf Daten wartet, nicht mit diesen rechnen kann.
+
+Listing \ref{lst:wrapper} zeigt den Code, welcher genutzt wird um die unterschiedlichen Implementationen auszuführen und deren FLOPS zu messen. Dazu werden zuerst die Arrays \mintinline{c}|a| und \mintinline{c}|b| mit zufälligen Werten initialisiert (Zeile 19-21) und danach an die jeweilige \mintinline{c}|matrix_mult()|-Funktion (Zeile 25) übergeben. Um die Ausführungszeit zu messen wird die \mintinline{c}|time()|-Funktion aus der Standardbibliothek mit dem \mintinline{c}|<time.h>|-Header genutzt. Das kompilieren erfolgt mit den folgenden Flags:
+
+\mint{bash}|gcc -DSIZE=${SIZE} ${VERSION}.c wrapper.c -Wall -Wextra -o "${VERSION}-${SIZE}"|
+
+Wobei erneut \mintinline{bash}|SIZE| genutzt wird um die Größe der Matrix anzugeben und \mintinline{bash}|VERSION| selectiert welche Implementation gewählt wird.
+
+\begin{listing}
+\inputminted[firstline=6, linenos=true]{c}{wrapper.c}
+\caption{wrapper.c}
+\label{lst:wrapper}
+\end{listing}
+
+\section*{Aufgabe 6}
+Der Graph stellt die in Aufgabe 5 gemessenen FLOPs dar. Auf der x-Achse sind die verschiedenen Matrixgrößen aufgetragen, auf der y-Achse die erreichten FLOPs.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+ybar, ylabel=FLOPS,
+symbolic x coords={128,256,512,1024, 2048},
+legend style={at={(0.5,-0.10)},anchor=north,legend columns=-1},
+enlargelimits=0.2,nodes near coords,
+xtick=data,]
+
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=default, y error plus=default-error-plus, y error minus=default-error-minus] {haswell-flops/data.csv};
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+\begin{table}[h!]
+ \begin{tabular}{c|c c c c c}
+ SIZE & 128 & 256 & 512 & 1024 & 2048 \\ [0.5ex] 
+ \hline\hline
+ Median& 419.9& 304.4& 246.0& 224.5& 186.0 \\ [1ex]
+ Minimum& 417.8& 287.0& 243.8& 223.1& 181.2 \\ [1ex]
+ Maximum& 426.1& 331.6& 246.0& 244.5& 190.3 \\ [1ex]
+ \end{tabular}
+\end{table}
+
+\section*{Aufgabe 7}
+
+Optimierung: \textit{Vertauschung der Schleifen} \\
+Das Problem mit der Default-Implementierung ist, dass in jeder Iteration der innersten Schleife (Index k) auf b[i][c] zugegriffen wird. Da Matrizen in C im row-major Format abgespeichert werden, liegen aufeinanderfolgende Zugriffe (z.B. b[0][c] und b[1][c]) nicht nebeneinander im Speicher, was wiederum höchstwahrscheinlich in einem Cache Miss resultiert. \\
+Indem man nun die i-Schleife mit der c-Schleife vertauscht, ändert sich das Zugriffsmuster zu folgendem: b[i][0], b[i][1], ..., b[i][SIZE-1]. Es wird also nacheinander auf im Speicher nebeneinanderliegende Werte zugeriffen, wodurch die Cache Misses deutlich reduziert werden.
+\begin{listing}[H]
+\inputminted[firstline=3]{c}{loopswap.c}
+\caption{loopswap.c}
+\end{listing}
+
+Optimierung: \textit{Partial Loopunrolling} \\
+Die Zahl der Iterationen der innersten Schleife werden um einen Faktor N (hier N = 4) rediziert, indem inerhalb eines Schleifendurchlaufs die Operationen von N Schleifendurchläufen ausgeführt werden. Durch das Unrolling wird die Zahl der Sprünge verringert.
+\begin{listing}[H]
+\inputminted[firstline=3]{c}{unrolling.c}
+\caption{unrolling.c}
+\end{listing}
+
+Optimierung: \textit{Tiling} \\
+Eine große Matrixmultiplikation wird in viele kleine Matrixmultiplikationen aufgebrochen. Für die Messungen wurde eine \mintinline{c}|TILE_SIZE| von 32 verwendet
+\begin{listing}[H]
+\inputminted[firstline=3]{c}{tiling.c}
+\caption{tiling.c}
+\end{listing}
+
+Optimierung: \textit{Wiederverwendung von Werten} \\
+Durch das Anlegen einer Akkumulatorvariablen \textit{sum} wird beim Aufaddieren der einzelnen Summanden nicht immer auf den Speicher res[r][c] zugegriffen, sondern am Ende nur ein einziges Mal, wenn man \textit{sum} nach res[r][c] speichert.
+\begin{listing}[H]
+\inputminted[firstline=1]{c}{reuse.c}
+\caption{reuse.c}
+\end{listing}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[
+ybar, x=70pt, ymax=7e8,%y=1pt,
+ylabel=FLOPS,
+symbolic x coords={128,256,512,1024, 2048},
+legend style={at={(0.5,-0.10)},anchor=north,legend columns=-1},
+enlargelimits=0.15,nodes near coords,
+% visualization depends on={\thisrow{error-plus} \as \offset},
+every node near coord/.append style={yshift=10pt, font=\small, rotate=90, anchor=west},
+xtick=data]
+
+\addplot+ [
+%visualization depends on={\thisrow{default-error-plus} \as \offset},
+%node near coords style={yshift=\offset},
+error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=default, y error plus=default-error-plus, y error minus=default-error-minus] {haswell-flops/data.csv};
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=loopswap, y error plus=loopswap-error-plus, y error minus=loopswap-error-minus] {haswell-flops/data.csv};
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=unrolling, y error plus=unrolling-error-plus, y error minus=unrolling-error-minus] {haswell-flops/data.csv};
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=tiling, y error plus=tiling-error-plus, y error minus=tiling-error-minus] {haswell-flops/data.csv};
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=size, y=reuse, y error plus=reuse-error-plus, y error minus=reuse-error-minus] {haswell-flops/data.csv};
+
+\legend{default, loopswap, unrolling, tiling, reuse}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Wie bereits in Aufgabe 5 festgestellt, sinken die FLOPS der Standardimplementierung mit der Verdopplung der Matrixgröße um etwa 20\%. Beim Loopswap hingegen bleiben die FLOPS über die verschiedenen Matrixgrößen fast konstant bei rund 440 Giga FLOPS. Unsere Vermutung ist, dass dies daher kommt, da beim Loopswap das Caching verbessert wird, indem die Lokalität besser ausgenutzt wird. Indem alle Werte einer Cachezeile nacheinander genutzt werden und es somit wenige bis keine Zugriffe auf ungecachte Daten gibt, können in dieser Zeit die neuen Daten aus dem Hauptspeicher geholt und somit die Speicherlatenzen verdeckt werden.\\
+Unsere Implementierung von Tiling liefert über alle Matrizengrößen eine schlechte Fließkommaperformance von durchschnittlich 229.9 Giga FLOPS. Unsere Vermutung wäre, dass die Indexberechnung in der innersten Schleife die Performance nach unten drücken könnte. Außerdem gilt auch wie bei der Standardimplementierung ohne Loopswap, dass sich die Zugriffe auf b[it*TITLE\_SIZE + i][ct*TITLE\_SIZE + c] schlecht cachen lassen, was zu hohen Latzen führt. Bei der letzten Optimierung, der \textit{Wiederverwendung von Werten}, erhalten wir mit einer Matrixgröße von 128 die meisten FLOPS überhaupt.
+
+\section*{Aufgabe 8}
+Alle Plots stellen die leistung in FLOP/s in abhängigkeit zur genutzten compiler Optimierungs-Flag dar. Der compiler Auruf folgt diesem Schema:
+
+\mint{bash}|gcc -DSIZE="1024" ${VERSION}.c wrapper.c -Wall -Wextra -${OFLAG} -o "${VERSION}-1024-${OFLAG}"|
+
+Dabei ist zu beachten, dass für alle Berechnungen eine Matrixgröße von 1024 verwendet wurde und \mintinline{bash}|OFLAG| die Werte O0, O1, O2 oder O3 annehmen kann.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[ybar, ylabel=FLOPS,
+symbolic x coords={O0,O1,O2,O3},
+legend style={at={(0.5,-0.12)},anchor=north,legend columns=-1},
+enlargelimits=0.15,nodes near coords,xtick=data]
+
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=oflag, y=default, y error plus=default-error-plus, y error minus=default-error-minus] {haswell-flops-Oflags/data.csv};
+
+\legend{default}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Aus der Standardimplementation konnte der compiler bereits mit O1 viele Optimierungen herausholen.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[ybar, ylabel=FLOPS,
+symbolic x coords={O0,O1,O2,O3},
+legend style={at={(0.5,-0.12)},anchor=north,legend columns=-1},
+enlargelimits=0.15,nodes near coords,xtick=data]
+
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=oflag, y=loopswap, y error plus=loopswap-error-plus, y error minus=loopswap-error-minus] {haswell-flops-Oflags/data.csv};
+
+\legend{loopswap}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Bei der Implementation mit den vertauschten Schleifen erreicht der compiler durch die Flags O1 und O2 schon wesentlich höhere Werte als bei der default-version und auch durch die flag O3 werden die FLOPS noch einmal signifikant erhöht.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[ybar, ylabel=FLOPS,
+symbolic x coords={O0,O1,O2,O3},
+legend style={at={(0.5,-0.12)},anchor=north,legend columns=-1},
+enlargelimits=0.15,nodes near coords,xtick=data]
+
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=oflag, y=unrolling, y error plus=unrolling-error-plus, y error minus=unrolling-error-minus] {haswell-flops-Oflags/data.csv};
+
+\legend{unrolling}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Auf die Schleifenentrollung hat die Flag O1 einen ziemlich guten Einfluss. Dahingegen wird die Performance durch die weiteren Optimierungen von O2 und O3 sogar wieder gesenkt.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[ybar, ylabel=FLOPS,
+symbolic x coords={O0,O1,O2,O3},
+legend style={at={(0.5,-0.12)},anchor=north,legend columns=-1},
+enlargelimits=0.15,nodes near coords,xtick=data]
+
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=oflag, y=tiling, y error plus=tiling-error-plus, y error minus=tiling-error-minus] {haswell-flops-Oflags/data.csv};
+
+\legend{tiling}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Auf das tiling scheinen die Compiler-Flags einen sehr ähnlichen Einfluss wie auf die Standardimplementation zu haben. Dies könnte daran liegen, dass die beiden Versionen sich im Code sehr ähnlich sind, da auch beim Tiling die innersten 3 schleifen eine default-matrix-multiplikation umsetzen.
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[ybar, ylabel=FLOPS,
+symbolic x coords={O0,O1,O2,O3},
+legend style={at={(0.5,-0.12)},anchor=north,legend columns=-1},
+enlargelimits=0.15,nodes near coords,xtick=data]
+
+\addplot+ [error bars/y dir=both, error bars/y explicit, point meta=rawy] table
+[x=oflag, y=reuse, y error plus=reuse-error-plus, y error minus=reuse-error-minus] {haswell-flops-Oflags/data.csv};
+
+\legend{reuse}
+\end{axis}
+\end{tikzpicture}
+\end{center}
+
+Auch bei der Wiederverwendung von Variablen ist ein ähnliches Muster zu erkennen. Die erste Optimierung zeit hier den einzigen Effekt.
+\\
+Im allgemeinen lässt sich sagen, dass die Vertauschung der Schleifen auch im Bezug auf die Compiler-optimierungen den besten Effekt zeigt. Bei dieser Version wird einerseits die beste Performance erreicht und andererseits haben hier die Flags die größte Wirkung gezeigt.
+\end{document}
