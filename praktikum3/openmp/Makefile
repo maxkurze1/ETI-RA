@@ -1,16 +1,30 @@
 CC = nvc
-SIZE ?= 1024
+SIZES ?= 512 1024
+TEST_SIZE = 1024
 OFLAGS ?= -O3 -mp=gpu
 CFLAGS ?= -Wall -Wextra
+PROFILE_DIR = prof
+LAUNCH_COUNT ?= 5
 
-openmp: default.c wrapper.c ../util.c
-	$(CC) -DSIZE=$(SIZE) $^ $(CFLAGS) $(OFLAGS) -o $@ 
-
-.PHONY: clean
-clean:
-	rm -f *.o openmp test
+openmp-%: default.c wrapper.c ../util.c
+	$(CC) -DSIZE=$* $^ $(CFLAGS) $(OFLAGS) -o $@ 
 
 .PHONY: test
 test: default.c testing.c ../util.c
-	$(CC) -DSIZE=$(SIZE) $^ $(CFLAGS) $(OFLAGS) -o $@ && ./test
+	$(CC) -DSIZE=$(TEST_SIZE) $^ $(CFLAGS) $(OFLAGS) -o $@ && ./test
 
+.PHONY: clean
+clean:
+	rm -f *.o openmp-* test
+	rm -rf $(PROFILE_DIR)
+
+$(PROFILE_DIR):
+	mkdir $(PROFILE_DIR)
+
+.PHONY: profile
+profile: $(addprefix $(PROFILE_DIR)/profile-,$(SIZES)) | $(PROFILE_DIR)
+	../convert.py $^ $(PROFILE_DIR)/profile.csv
+
+$(PROFILE_DIR)/profile-%: openmp-% | $(PROFILE_DIR)
+	sudo ncu --metrics 'regex:^smsp__sass_thread_inst_executed_op_(dadd|dmul|dfma)_pred_on.sum$$,gpu__time_duration.sum'\
+			--csv --cache-control none --clock-control none --launch-count $(LAUNCH_COUNT) $^ $(LAUNCH_COUNT) | grep -E '^"' | tee $@
