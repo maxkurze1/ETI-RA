@@ -2,11 +2,10 @@
 #include <cstdio>
 
 __global__ void matrix_mult(double *a, double *b, double *res) {
-  int r = blockIdx.x * blockDim.x + threadIdx.x;
-  int c = blockIdx.y * blockDim.y + threadIdx.y;
-
-  for (int i = 0; i < SIZE; i++)
-    res[r * SIZE + c] += a[r * SIZE + i] * b[i * SIZE + c];
+  for (int r = blockIdx.x * blockDim.x + threadIdx.x; r < SIZE; r += blockDim.x * gridDim.x)
+    for (int c = blockIdx.y * blockDim.y + threadIdx.y; c < SIZE; c += blockDim.y * gridDim.y)
+      for (int i = 0; i < SIZE; i++)
+        res[r * SIZE + c] += a[r * SIZE + i] * b[i * SIZE + c];
 }
 
 void cuda_matrix_mult(double a[SIZE][SIZE], double b[SIZE][SIZE], double res[SIZE][SIZE]) {
@@ -16,20 +15,35 @@ void cuda_matrix_mult(double a[SIZE][SIZE], double b[SIZE][SIZE], double res[SIZ
 
   constexpr size_t byte_size = SIZE * SIZE * sizeof(double);
 
-  cudaMalloc(&gpu_a, byte_size);
-  cudaMalloc(&gpu_b, byte_size);
-  cudaMalloc(&gpu_res, byte_size);
+  cudaMallocManaged(&gpu_a, byte_size);
+  cudaMallocManaged(&gpu_b, byte_size);
+  cudaMallocManaged(&gpu_res, byte_size);
 
-  cudaMemcpy(gpu_a, a, byte_size, cudaMemcpyHostToDevice);
-  cudaMemcpy(gpu_b, b, byte_size, cudaMemcpyHostToDevice);
+  // cudaMemcpy(gpu_a, a, byte_size, cudaMemcpyHostToDevice);
+  // cudaMemcpy(gpu_b, b, byte_size, cudaMemcpyHostToDevice);
+  for (int i = 0; i < SIZE * SIZE; i++) {
+    gpu_a[i] = ((double*)a)[i];
+    gpu_b[i] = ((double*)b)[i];
+  }
+  
+  int deviceID;
+  cudaGetDevice(&deviceID);
 
-  dim3 threadsPerBlock(16, 16);
-  dim3 numBlocks(SIZE / threadsPerBlock.x, SIZE / threadsPerBlock.y);
+  cudaMemPrefetchAsync(gpu_a, byte_size, deviceID);
+  cudaMemPrefetchAsync(gpu_b, byte_size, deviceID);
+
+  dim3 threadsPerBlock(1, 128);
+  dim3 numBlocks(SIZE/(threadsPerBlock.x), SIZE/(threadsPerBlock.y));
   matrix_mult<<<numBlocks, threadsPerBlock>>>(gpu_a, gpu_b, gpu_res);
 
   cudaDeviceSynchronize();
 
-  cudaMemcpy(res, gpu_res, byte_size, cudaMemcpyDeviceToHost);
+  cudaMemPrefetchAsync(gpu_res, byte_size, deviceID);
+
+  for (int i = 0; i < SIZE * SIZE; i++){
+    ((double*)res)[i] = gpu_res[i];
+  }
+  // cudaMemcpy(res, gpu_res, byte_size, cudaMemcpyDeviceToHost);
 
   cudaFree(gpu_a);
   cudaFree(gpu_b);

@@ -11,7 +11,7 @@ openmp-%: default.c wrapper.c ../util.c
 
 .PHONY: test
 test: default.c testing.c ../util.c
-	$(CC) -DSIZE=$(TEST_SIZE) $^ $(CFLAGS) $(OFLAGS) -o $@ && ./test
+	$(CC) -DSIZE=$(TEST_SIZE) $^ $(CFLAGS) -Mnofma -mp=gpu -o $@ && ./test
 
 .PHONY: clean
 clean:

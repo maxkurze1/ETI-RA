@@ -27,7 +27,7 @@ int main() {
   for (int r = 0; r < SIZE; r++)
     for (int c = 0; c < SIZE; c++)
       if (correct[r][c] != res[r][c]) {
-        printf("Check failed for row(%d) column(%d): correct(%lf) != res(%lf)\n", r, c, correct[r][c], res[r][c]);
+        printf("Check failed for row(%d) column(%d):\ncorrect(%lf) !=\nres    (%lf)\n", r, c, correct[r][c], res[r][c]);
         if (++count >= 5) return 1;
       }
   if (count == 0) printf("No failes\n");
