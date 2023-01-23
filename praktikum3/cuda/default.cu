@@ -15,12 +15,16 @@ void cuda_matrix_mult(double a[SIZE][SIZE], double b[SIZE][SIZE], double res[SIZ
 
   constexpr size_t byte_size = SIZE * SIZE * sizeof(double);
 
-  cudaMallocManaged(&gpu_a, byte_size);
-  cudaMallocManaged(&gpu_b, byte_size);
+  cudaError_t err = cudaMallocManaged(&gpu_a, byte_size);
+  if (err != cudaSuccess)
+    printf("malloc failed");
+  err = cudaMallocManaged(&gpu_b, byte_size);
+  if (err != cudaSuccess)
+    printf("malloc failed");
   cudaMallocManaged(&gpu_res, byte_size);
+  if (err != cudaSuccess)
+    printf("malloc failed");
 
-  // cudaMemcpy(gpu_a, a, byte_size, cudaMemcpyHostToDevice);
-  // cudaMemcpy(gpu_b, b, byte_size, cudaMemcpyHostToDevice);
   for (int i = 0; i < SIZE * SIZE; i++) {
     gpu_a[i] = ((double*)a)[i];
     gpu_b[i] = ((double*)b)[i];
@@ -38,12 +42,11 @@ void cuda_matrix_mult(double a[SIZE][SIZE], double b[SIZE][SIZE], double res[SIZ
 
   cudaDeviceSynchronize();
 
-  cudaMemPrefetchAsync(gpu_res, byte_size, deviceID);
+  cudaMemPrefetchAsync(gpu_res, byte_size, cudaCpuDeviceId);
 
   for (int i = 0; i < SIZE * SIZE; i++){
     ((double*)res)[i] = gpu_res[i];
   }
-  // cudaMemcpy(res, gpu_res, byte_size, cudaMemcpyDeviceToHost);
 
   cudaFree(gpu_a);
   cudaFree(gpu_b);

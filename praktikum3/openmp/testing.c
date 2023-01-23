@@ -1,4 +1,3 @@
-#include <cblas.h>
 #include <stdio.h>
 #include "../size.h"
 
@@ -31,7 +30,5 @@ int main() {
         if (++count >= 5) return 1;
       }
   if (count == 0) printf("No failes\n");
-  printf("%lf ==\n%lf\n\n", correct[0][1], res[0][1]);
-  printf("%lf ==\n%lf\n\n", correct[1][0], res[1][0]);
   return count != 0;
 }

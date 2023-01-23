@@ -1,6 +1,6 @@
 CC = nvc
-SIZES ?= 512 1024
-TEST_SIZE = 1024
+SIZES ?= 512 1024 2048 2436 2896 3444 4096 4870 5792 6888 8192
+TEST_SIZE = 1735 
 OFLAGS ?= -O3 -mp=gpu
 CFLAGS ?= -Wall -Wextra
 PROFILE_DIR = prof
@@ -26,5 +26,5 @@ profile: $(addprefix $(PROFILE_DIR)/profile-,$(SIZES)) | $(PROFILE_DIR)
 	../convert.py $^ $(PROFILE_DIR)/profile.csv
 
 $(PROFILE_DIR)/profile-%: openmp-% | $(PROFILE_DIR)
-	sudo ncu --metrics 'regex:^smsp__sass_thread_inst_executed_op_(dadd|dmul|dfma)_pred_on.sum$$,gpu__time_duration.sum'\
+	ncu --metrics 'regex:^smsp__sass_thread_inst_executed_op_(dadd|dmul|dfma)_pred_on.sum$$,gpu__time_duration.sum'\
 			--csv --cache-control none --clock-control none --launch-count $(LAUNCH_COUNT) $^ $(LAUNCH_COUNT) | grep -E '^"' | tee $@

@@ -1,5 +1,4 @@
 #include "default.h"
-#include <cstdlib>
 #include <cstdio>
 
 extern "C" void init_random(double[SIZE][SIZE]);
