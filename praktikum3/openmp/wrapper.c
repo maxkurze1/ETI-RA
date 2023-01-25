@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
+#include <stdio.h>
 #include "../size.h"
 
 extern void init_random(double[SIZE][SIZE]);
