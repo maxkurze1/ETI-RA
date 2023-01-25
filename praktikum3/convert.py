@@ -51,13 +51,13 @@ for file in sys.argv[1:-1]:
     # data = data.assign(size=size)
 
     plot_data = pd.concat([plot_data, pd.DataFrame({'size': size,
-                      'time': time.median(),
-                      'time-e-m': time.median() - time.min(),
-                      'time-e-p': time.max() - time.median(),
-                      'flop': flop.median(),
-                      'flops': flops.median(),
-                      'flops-e-m': flops.median() - flops.min(),
-                      'flops-e-p': flops.max() - flops.min()
+                      'time': time.mean(),
+                      'time-e-m': time.mean() - time.min(),
+                      'time-e-p': time.max() - time.mean(),
+                      'flop': flop.mean(),
+                      'flops': flops.mean(),
+                      'flops-e-m': flops.mean() - flops.min(),
+                      'flops-e-p': flops.max() - flops.mean()
                       }, index=[0])],ignore_index=True);
 
     # plot_data = pd.concat([plot_data, data])
