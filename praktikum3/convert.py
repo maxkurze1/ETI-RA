@@ -62,7 +62,7 @@ for file in sys.argv[1:-1]:
 
     # plot_data = pd.concat([plot_data, data])
 
-plot_data.to_csv(sys.argv[-1], index=False)
+plot_data.sort_values(by=['size']).to_csv(sys.argv[-1], index=False)
 
 # flop_data = dict(sorted(flop_data.items()))
 
